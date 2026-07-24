@@ -158,7 +158,15 @@
     }
 
     footer { color: var(--muted); font-size: 0.82rem; text-align: center; padding: 20px 0 40px; }
-    .toolbar { display: flex; gap: 10px; justify-content: flex-end; margin-bottom: 16px; flex-wrap: wrap; }
+    .toolbar { display: flex; gap: 10px; justify-content: flex-end; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+    .toolbar input[type=text] {
+      flex: 1; min-width: 220px; background: var(--panel); color: var(--text);
+      border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; font-size: 0.85rem;
+    }
+    .toolbar input[type=text]:focus { outline: none; border-color: var(--accent); }
+    .sync { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+    .sync.err { color: var(--mark); }
+    .attr { font-size: 0.78rem; color: var(--muted); margin-left: 8px; font-style: italic; }
     button {
       background: var(--panel); color: var(--text); border: 1px solid var(--line);
       padding: 7px 14px; border-radius: 8px; font-size: 0.85rem; cursor: pointer;
@@ -170,7 +178,7 @@
   <header>
     <div class="wrap">
       <h1>On Your Mark Transportation</h1>
-      <p class="sub">Project Dashboard &middot; OYMT &amp; 100 Cups &middot; Progress saves automatically on this device</p>
+      <p class="sub">Project Dashboard &middot; OYMT &amp; 100 Cups &middot; Shared checklist &mdash; everyone sees the same progress</p>
       <div class="overall">
         <div class="bar"><span id="overallBar"></span></div>
         <div class="pct" id="overallPct">0%</div>
@@ -180,6 +188,8 @@
 
   <main class="wrap">
     <div class="toolbar">
+      <input id="nameInput" type="text" placeholder="Your name (so the team sees who did what)" autocomplete="name" />
+      <span id="syncStatus" class="sync">Connecting…</span>
       <button id="resetBtn" type="button">Reset all checkboxes</button>
     </div>
 
@@ -208,7 +218,7 @@
   </main>
 
   <footer>
-    Built for On Your Mark Transportation. Checkbox progress is stored in your browser (localStorage) and is private to this device.
+    Built for On Your Mark Transportation. Progress is shared across the whole team and updates live every few seconds.
   </footer>
 
   <script>
@@ -274,10 +284,39 @@
       }
     ];
 
-    const STORE_KEY = "oymt-dashboard-v1";
-    const state = JSON.parse(localStorage.getItem(STORE_KEY) || "{}");
+    // ---- Shared state (lives on the server, synced for everyone) ----
+    let state = {};            // { taskId: { done, by, at } }
+    const boxes = {};          // taskId -> checkbox element
+    const attrs = {};          // taskId -> attribution span
+    const NAME_KEY = "oymt-name";
 
-    function save() { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+    function currentName() {
+      return (document.getElementById("nameInput").value || "").trim();
+    }
+
+    function setSync(msg, isErr) {
+      const el = document.getElementById("syncStatus");
+      el.textContent = msg;
+      el.classList.toggle("err", !!isErr);
+    }
+
+    async function apiGet() {
+      const r = await fetch("/api/state", { cache: "no-store" });
+      if (!r.ok) throw new Error("get failed");
+      return r.json();
+    }
+    async function apiSet(id, done) {
+      const r = await fetch("/api/state", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, done, by: currentName() })
+      });
+      if (!r.ok) throw new Error("save failed");
+    }
+    async function apiReset() {
+      const r = await fetch("/api/reset", { method: "POST" });
+      if (!r.ok) throw new Error("reset failed");
+    }
 
     function allTaskIds() {
       const ids = [];
@@ -287,7 +326,7 @@
 
     function updateProgress() {
       const ids = allTaskIds();
-      const done = ids.filter(id => state[id]).length;
+      const done = ids.filter(id => state[id] && state[id].done).length;
       const pct = ids.length ? Math.round((done / ids.length) * 100) : 0;
       document.getElementById("overallBar").style.width = pct + "%";
       document.getElementById("overallPct").textContent = pct + "% (" + done + "/" + ids.length + ")";
@@ -295,13 +334,26 @@
       DATA.forEach(p => {
         const pIds = [];
         p.groups.forEach(g => g.tasks.forEach(t => pIds.push(t.id)));
-        const pDone = pIds.filter(id => state[id]).length;
+        const pDone = pIds.filter(id => state[id] && state[id].done).length;
         const pPct = pIds.length ? Math.round((pDone / pIds.length) * 100) : 0;
         const bar = document.getElementById("bar-" + p.id);
         const lbl = document.getElementById("pct-" + p.id);
         if (bar) bar.style.width = pPct + "%";
         if (lbl) lbl.textContent = pPct + "% (" + pDone + "/" + pIds.length + ")";
       });
+    }
+
+    function applyOne(id) {
+      const cb = boxes[id];
+      const s = state[id];
+      if (cb) cb.checked = !!(s && s.done);
+      const a = attrs[id];
+      if (a) a.textContent = (s && s.done && s.by) ? ("— " + s.by) : "";
+    }
+
+    function applyAll() {
+      allTaskIds().forEach(applyOne);
+      updateProgress();
     }
 
     function render() {
@@ -314,10 +366,10 @@
         let groupsHtml = "";
         p.groups.forEach(g => {
           const items = g.tasks.map(t => {
-            const checked = state[t.id] ? "checked" : "";
             const flag = t.flag ? '<span class="flag">' + t.flag + '</span>' : "";
-            return '<li><label><input type="checkbox" data-id="' + t.id + '" ' + checked + '>' +
-                   '<span class="task-text">' + t.text + flag + '</span></label></li>';
+            return '<li><label><input type="checkbox" data-id="' + t.id + '">' +
+                   '<span class="task-text">' + t.text + flag +
+                   '<span class="attr" data-attr="' + t.id + '"></span></span></label></li>';
           }).join("");
           groupsHtml += '<div class="group">' +
             '<div class="group-label"><span class="dot ' + g.owner + '"></span>' + g.label + '</div>' +
@@ -335,24 +387,56 @@
       });
 
       root.querySelectorAll('input[type=checkbox]').forEach(cb => {
-        cb.addEventListener("change", () => {
-          state[cb.dataset.id] = cb.checked;
-          save();
+        boxes[cb.dataset.id] = cb;
+        cb.addEventListener("change", async () => {
+          const id = cb.dataset.id;
+          const done = cb.checked;
+          const prev = state[id];
+          state[id] = { done, by: currentName(), at: new Date().toISOString() };
+          applyOne(id);
           updateProgress();
+          try {
+            await apiSet(id, done);
+            setSync("Saved " + new Date().toLocaleTimeString());
+          } catch (e) {
+            state[id] = prev;               // roll back on failure
+            applyOne(id);
+            updateProgress();
+            setSync("Save failed — check your connection", true);
+          }
         });
       });
-      updateProgress();
+      root.querySelectorAll('[data-attr]').forEach(a => { attrs[a.dataset.attr] = a; });
     }
 
-    document.getElementById("resetBtn").addEventListener("click", () => {
-      if (confirm("Clear all checkmarks? This only affects this device.")) {
-        allTaskIds().forEach(id => delete state[id]);
-        save();
-        render();
+    async function sync() {
+      try {
+        state = await apiGet();
+        applyAll();
+        setSync("Synced " + new Date().toLocaleTimeString());
+      } catch (e) {
+        setSync("Offline — retrying…", true);
+      }
+    }
+
+    // Name field persistence
+    const nameInput = document.getElementById("nameInput");
+    nameInput.value = localStorage.getItem(NAME_KEY) || "";
+    nameInput.addEventListener("input", () => localStorage.setItem(NAME_KEY, nameInput.value));
+
+    document.getElementById("resetBtn").addEventListener("click", async () => {
+      if (!confirm("Clear ALL checkmarks for everyone? This affects the whole team.")) return;
+      try {
+        await apiReset();
+        await sync();
+      } catch (e) {
+        setSync("Reset failed", true);
       }
     });
 
     render();
+    sync();
+    setInterval(sync, 5000);   // keep everyone in sync
   </script>
 </body>
 </html>

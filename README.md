@@ -1,49 +1,76 @@
 # On Your Mark Transportation — Project Dashboard
 
-A simple, self-contained checklist and timeline dashboard for the OYMT and 100 Cups
-project list. One file, no build step, no server. Checkboxes save automatically in
-the browser.
+A shared checklist and timeline dashboard for the OYMT and 100 Cups project list.
+Everyone on the team sees the same progress: when one person checks a box, it shows
+up for everyone within a few seconds.
 
 ## What's inside
 
-- `index.html` — the entire dashboard (HTML, CSS, and JavaScript in one file)
-- `netlify.toml` — Netlify publish settings
+- `public/index.html` — the dashboard (HTML, CSS, and JavaScript in one file)
+- `server.js` — small Node/Express server + tiny API for shared state
+- `package.json` — dependencies (Express, Postgres client)
 - Three projects tracked: OYMT Geo-Fence (South Bend), Southern Express (NC),
   American Stage Tours (N. California)
-- A timeline section and per-project progress bars
+- A timeline, per-project progress bars, and "who did what" name tags
 
-## How progress saving works
+## How the sharing works
 
-Checkmarks are stored in your browser using localStorage. That means:
+- Checkbox state is saved on the server in a **Postgres database**, not in the browser.
+- The page refreshes state every 5 seconds, so the team stays in sync.
+- Each person types their name once (top of the page); their name shows next to
+  boxes they check.
 
-- Progress is saved automatically as you click.
-- It is private to the device and browser you're using.
-- It does **not** sync between people or between phone and laptop.
+## Deploy to Railway — step by step
 
-If you need shared, multi-person tracking later, that's a bigger change (a small
-backend or a database). This version is intentionally the "basic" one you asked for.
+You'll need a Railway account (railway.app). These steps use the GitHub repo so
+every future change deploys automatically.
 
-## Deploy to Netlify — two ways
+### 1. Create the project from this repo
 
-### Option A: Drag and drop (fastest)
+1. In Railway, click **New Project**.
+   - **What you'll see:** a menu of options.
+2. Choose **Deploy from GitHub repo** and pick this repository.
+3. Railway reads `package.json`, installs dependencies, and runs `npm start` on its own.
 
-1. Go to **app.netlify.com** and log in.
-2. Click **Add new site** then **Deploy manually**.
-   - **What you'll see:** a big box that says "Drag and drop your site output folder here."
-3. Drag this whole project folder into that box.
-4. Wait a few seconds. Netlify gives you a live link like `random-name.netlify.app`.
-5. (Optional) Rename it under **Site configuration → Change site name**.
+### 2. Add the shared database
 
-### Option B: Connect this GitHub repo (auto-deploys on every change)
+1. In your project, click **New** then **Database** then **Add PostgreSQL**.
+   - **What you'll see:** a Postgres box appear next to your app.
+2. Click your **app** service, go to the **Variables** tab.
+3. Add a variable named `DATABASE_URL` and set its value by referencing the Postgres
+   service (Railway lets you pick `${{Postgres.DATABASE_URL}}` from a dropdown).
+   - **What you'll see:** the value fills in with a reference to the database.
+4. The app creates the table it needs automatically on first start.
 
-1. In Netlify, click **Add new site** then **Import an existing project**.
-2. Choose **GitHub** and pick this repository.
-3. Leave the build command blank and set **Publish directory** to `.` (a single dot).
-   - Netlify will read `netlify.toml` and fill these in for you.
-4. Click **Deploy**. Every future push updates the live site automatically.
+### 3. Get your live link
+
+1. Click your app service, go to **Settings** then **Networking**.
+2. Click **Generate Domain**.
+   - **What you'll see:** a public link like `oymt-dashboard.up.railway.app`.
+3. Open it. That's the dashboard the whole team uses.
+
+### 4. (Recommended) Lock it with a password
+
+Client project info should not be open to the public. To require a shared password:
+
+1. In the app's **Variables** tab, add `APP_PASSWORD` and set it to a password of
+   your choice.
+2. Redeploy (Railway usually does this automatically when a variable changes).
+3. Now anyone opening the link gets a login box. Any username works; the password
+   is the one you set. Share it with the team only.
+
+## Run it locally (optional)
+
+```bash
+npm install
+npm start          # runs on http://localhost:3000
+```
+
+Without a `DATABASE_URL` it uses in-memory storage (fine for testing; resets when
+you stop it). Copy `.env.example` to `.env` to set variables locally.
 
 ## Editing tasks later
 
-Open `index.html` and find the `const DATA = [ ... ]` block near the bottom. Each task
-is one line. Add, remove, or reword tasks there. Keep each task's `id` unique so saved
-progress stays matched to the right item.
+Open `public/index.html` and find the `const DATA = [ ... ]` block near the bottom.
+Each task is one line. Add, remove, or reword tasks there. Keep each task's `id`
+unique and stable so saved progress stays matched to the right item.
