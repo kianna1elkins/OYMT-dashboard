@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>On Your Mark Transportation — Project Dashboard</title>
+  <style>
+    :root {
+      --bg: #0f1720;
+      --panel: #16212e;
+      --panel-2: #1d2b3a;
+      --line: #26384a;
+      --text: #e8eef5;
+      --muted: #9db0c3;
+      --accent: #2f80ed;
+      --accent-soft: #1e3a5f;
+      --done: #27ae60;
+      --mark: #f2994a;
+      --cups: #56ccf2;
+      --shadow: 0 6px 20px rgba(0,0,0,0.25);
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f4f7fb;
+        --panel: #ffffff;
+        --panel-2: #f0f4f9;
+        --line: #e1e8f0;
+        --text: #1a2634;
+        --muted: #5b6b7d;
+        --accent: #2f80ed;
+        --accent-soft: #e3eefc;
+        --done: #219653;
+        --mark: #e67e22;
+        --cups: #2d9cdb;
+        --shadow: 0 4px 14px rgba(20,40,70,0.08);
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+    header {
+      background: linear-gradient(135deg, var(--accent-soft), var(--panel));
+      border-bottom: 1px solid var(--line);
+      padding: 28px 20px 24px;
+    }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 0 20px; }
+    header .wrap { padding: 0; max-width: 980px; }
+    h1 { margin: 0 0 4px; font-size: 1.6rem; letter-spacing: -0.02em; }
+    .sub { color: var(--muted); font-size: 0.95rem; margin: 0; }
+    .overall {
+      margin-top: 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .bar {
+      flex: 1;
+      min-width: 200px;
+      height: 12px;
+      background: var(--panel-2);
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+    }
+    .bar > span {
+      display: block;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--done));
+      transition: width 0.4s ease;
+    }
+    .pct { font-weight: 700; font-size: 1.05rem; white-space: nowrap; }
+    main { padding: 28px 0 60px; }
+    section { margin-bottom: 34px; }
+    h2 { font-size: 1.05rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 14px; }
+
+    /* Timeline */
+    .timeline { position: relative; padding-left: 26px; }
+    .timeline::before {
+      content: "";
+      position: absolute; left: 7px; top: 4px; bottom: 4px;
+      width: 2px; background: var(--line);
+    }
+    .tl-item { position: relative; margin-bottom: 16px; }
+    .tl-item::before {
+      content: "";
+      position: absolute; left: -22px; top: 5px;
+      width: 12px; height: 12px; border-radius: 50%;
+      background: var(--accent); border: 2px solid var(--bg);
+    }
+    .tl-item.tl-soon::before { background: var(--mark); }
+    .tl-date { font-weight: 700; font-size: 0.9rem; }
+    .tl-desc { color: var(--muted); font-size: 0.9rem; }
+
+    /* Project cards */
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .card-head {
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .card-title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+    .card-title h3 { margin: 0; font-size: 1.2rem; }
+    .loc { color: var(--muted); font-size: 0.9rem; }
+    .card-progress { margin-top: 10px; display: flex; align-items: center; gap: 12px; }
+    .card-progress .bar { height: 8px; }
+    .card-progress .pct { font-size: 0.85rem; color: var(--muted); }
+
+    .group { padding: 8px 20px 4px; }
+    .group-label {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-weight: 700; font-size: 0.8rem; text-transform: uppercase;
+      letter-spacing: 0.06em; margin: 12px 0 6px; color: var(--muted);
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot.mark { background: var(--mark); }
+    .dot.cups { background: var(--cups); }
+
+    ul.tasks { list-style: none; margin: 0 0 8px; padding: 0; }
+    ul.tasks li {
+      display: flex; align-items: flex-start; gap: 11px;
+      padding: 9px 6px; border-radius: 8px;
+    }
+    ul.tasks li:hover { background: var(--panel-2); }
+    ul.tasks label { display: flex; align-items: flex-start; gap: 11px; cursor: pointer; width: 100%; }
+    input[type=checkbox] {
+      appearance: none; -webkit-appearance: none;
+      width: 20px; height: 20px; margin: 1px 0 0; flex-shrink: 0;
+      border: 2px solid var(--line); border-radius: 6px;
+      background: var(--panel); cursor: pointer; position: relative;
+      transition: all 0.15s ease;
+    }
+    input[type=checkbox]:checked { background: var(--done); border-color: var(--done); }
+    input[type=checkbox]:checked::after {
+      content: ""; position: absolute; left: 6px; top: 2px;
+      width: 5px; height: 10px; border: solid #fff;
+      border-width: 0 2px 2px 0; transform: rotate(45deg);
+    }
+    .task-text { font-size: 0.95rem; }
+    input:checked + .task-text { text-decoration: line-through; color: var(--muted); }
+    .flag {
+      font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.05em; background: var(--mark); color: #fff;
+      padding: 1px 6px; border-radius: 4px; margin-left: 6px; vertical-align: middle;
+    }
+
+    footer { color: var(--muted); font-size: 0.82rem; text-align: center; padding: 20px 0 40px; }
+    .toolbar { display: flex; gap: 10px; justify-content: flex-end; margin-bottom: 16px; flex-wrap: wrap; }
+    button {
+      background: var(--panel); color: var(--text); border: 1px solid var(--line);
+      padding: 7px 14px; border-radius: 8px; font-size: 0.85rem; cursor: pointer;
+    }
+    button:hover { border-color: var(--accent); color: var(--accent); }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>On Your Mark Transportation</h1>
+      <p class="sub">Project Dashboard &middot; OYMT &amp; 100 Cups &middot; Progress saves automatically on this device</p>
+      <div class="overall">
+        <div class="bar"><span id="overallBar"></span></div>
+        <div class="pct" id="overallPct">0%</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="toolbar">
+      <button id="resetBtn" type="button">Reset all checkboxes</button>
+    </div>
+
+    <section>
+      <h2>Timeline</h2>
+      <div class="timeline" id="timeline">
+        <div class="tl-item tl-soon">
+          <div class="tl-date">Mon–Wed, July 27–29</div>
+          <div class="tl-desc">Geo-Fenced advertising runs at the Midwest Bus &amp; Motorcoach Association conference (South Bend). Ad assets must be ready before this.</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-date">Ongoing — Southern Express (NC)</div>
+          <div class="tl-desc">Facebook admin access, team training, analytics baseline, and 100 Cups channel setup. <em>Target dates TBD.</em></div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-date">Ongoing — American Stage Tours (N. California)</div>
+          <div class="tl-desc">Facebook admin access, team training, tour research, and 100 Cups channel setup. <em>Target dates TBD.</em></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Projects</h2>
+      <div id="projects"></div>
+    </section>
+  </main>
+
+  <footer>
+    Built for On Your Mark Transportation. Checkbox progress is stored in your browser (localStorage) and is private to this device.
+  </footer>
+
+  <script>
+    const DATA = [
+      {
+        id: "geofence",
+        title: "OYMT Geo-Fence — South Bend Conference",
+        loc: "Midwest Bus & Motorcoach Association · July 27–29",
+        groups: [
+          { owner: "mark", label: "Mark", tasks: [
+            { id: "gf-m1", text: "Provide info to 100 Cups to create the eye-catching ad for the Geo-Fenced campaign (conference runs Mon/Tue/Wed, July 27–29)", flag: "First" }
+          ]},
+          { owner: "cups", label: "100 Cups", tasks: [
+            { id: "gf-c1", text: "Create the format and eye-catching ad Mark (and attendees) will see repeatedly while at the conference" }
+          ]}
+        ]
+      },
+      {
+        id: "southern",
+        title: "Southern Express",
+        loc: "North Carolina",
+        groups: [
+          { owner: "mark", label: "Mark", tasks: [
+            { id: "se-m1", text: "Write to Vance for admin access to the current Facebook page", flag: "First" },
+            { id: "se-m2", text: "Train Liliia on the background of Charters and Southern Express" },
+            { id: "se-m3", text: "Train Liliia on using Buffer.com to schedule social posts" },
+            { id: "se-m4", text: "Have Liliia research current Facebook analytics to set a baseline" },
+            { id: "se-m5", text: "Have Liliia start research for various blog posts" },
+            { id: "se-m6", text: "Have Liliia research Pinehurst and the Casino to prepare content for both and hand off to 100 Cups for the website" },
+            { id: "se-m7", text: "Follow up by email with Vance: which is the priority, Pinehurst or the Casino page?" }
+          ]},
+          { owner: "cups", label: "100 Cups", tasks: [
+            { id: "se-c1", text: "Review website" },
+            { id: "se-c2", text: "Review Facebook" },
+            { id: "se-c3", text: "Create Instagram page" },
+            { id: "se-c4", text: "Create a YouTube channel to park videos for migration" },
+            { id: "se-c5", text: "Create a blog page" }
+          ]}
+        ]
+      },
+      {
+        id: "american",
+        title: "American Stage Tours",
+        loc: "Northern California",
+        groups: [
+          { owner: "mark", label: "Mark", tasks: [
+            { id: "as-m1", text: "Write to Charles for admin access to the current Facebook page", flag: "First" },
+            { id: "as-m2", text: "Train Suwie on the background of Tours and American Stage Tours" },
+            { id: "as-m3", text: "Train Suwie on using Buffer.com to schedule social posts" },
+            { id: "as-m4", text: "Have Suwie research current Facebook analytics to set a baseline" },
+            { id: "as-m5", text: "Have Suwie start research for various blog posts" },
+            { id: "as-m6", text: "Have Suwie research what American Stage Tours are" },
+            { id: "as-m7", text: "Follow up by email with Charles on upcoming tours — even just dates and locations — so pages can be laid out with the future in mind (e.g. 10 more trips this fall vs. only 2)" }
+          ]},
+          { owner: "cups", label: "100 Cups", tasks: [
+            { id: "as-c1", text: "Review website" },
+            { id: "as-c2", text: "Review Facebook" },
+            { id: "as-c3", text: "Create Instagram page" },
+            { id: "as-c4", text: "Create a YouTube channel to park videos for migration" },
+            { id: "as-c5", text: "Create a blog page" }
+          ]}
+        ]
+      }
+    ];
+
+    const STORE_KEY = "oymt-dashboard-v1";
+    const state = JSON.parse(localStorage.getItem(STORE_KEY) || "{}");
+
+    function save() { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+
+    function allTaskIds() {
+      const ids = [];
+      DATA.forEach(p => p.groups.forEach(g => g.tasks.forEach(t => ids.push(t.id))));
+      return ids;
+    }
+
+    function updateProgress() {
+      const ids = allTaskIds();
+      const done = ids.filter(id => state[id]).length;
+      const pct = ids.length ? Math.round((done / ids.length) * 100) : 0;
+      document.getElementById("overallBar").style.width = pct + "%";
+      document.getElementById("overallPct").textContent = pct + "% (" + done + "/" + ids.length + ")";
+
+      DATA.forEach(p => {
+        const pIds = [];
+        p.groups.forEach(g => g.tasks.forEach(t => pIds.push(t.id)));
+        const pDone = pIds.filter(id => state[id]).length;
+        const pPct = pIds.length ? Math.round((pDone / pIds.length) * 100) : 0;
+        const bar = document.getElementById("bar-" + p.id);
+        const lbl = document.getElementById("pct-" + p.id);
+        if (bar) bar.style.width = pPct + "%";
+        if (lbl) lbl.textContent = pPct + "% (" + pDone + "/" + pIds.length + ")";
+      });
+    }
+
+    function render() {
+      const root = document.getElementById("projects");
+      root.innerHTML = "";
+      DATA.forEach(p => {
+        const card = document.createElement("div");
+        card.className = "card";
+
+        let groupsHtml = "";
+        p.groups.forEach(g => {
+          const items = g.tasks.map(t => {
+            const checked = state[t.id] ? "checked" : "";
+            const flag = t.flag ? '<span class="flag">' + t.flag + '</span>' : "";
+            return '<li><label><input type="checkbox" data-id="' + t.id + '" ' + checked + '>' +
+                   '<span class="task-text">' + t.text + flag + '</span></label></li>';
+          }).join("");
+          groupsHtml += '<div class="group">' +
+            '<div class="group-label"><span class="dot ' + g.owner + '"></span>' + g.label + '</div>' +
+            '<ul class="tasks">' + items + '</ul></div>';
+        });
+
+        card.innerHTML =
+          '<div class="card-head">' +
+            '<div class="card-title"><h3>' + p.title + '</h3><span class="loc">' + p.loc + '</span></div>' +
+            '<div class="card-progress"><div class="bar"><span id="bar-' + p.id + '"></span></div>' +
+            '<div class="pct" id="pct-' + p.id + '"></div></div>' +
+          '</div>' + groupsHtml;
+
+        root.appendChild(card);
+      });
+
+      root.querySelectorAll('input[type=checkbox]').forEach(cb => {
+        cb.addEventListener("change", () => {
+          state[cb.dataset.id] = cb.checked;
+          save();
+          updateProgress();
+        });
+      });
+      updateProgress();
+    }
+
+    document.getElementById("resetBtn").addEventListener("click", () => {
+      if (confirm("Clear all checkmarks? This only affects this device.")) {
+        allTaskIds().forEach(id => delete state[id]);
+        save();
+        render();
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>
